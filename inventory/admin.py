@@ -14,9 +14,10 @@ from django.utils.html import format_html
 
 from .models import (
     AuditEvent, Category, Client, CustomFieldDef,
-    CustomFieldValue, Item, Location,
+    CustomFieldValue, Item, LabelFormat, Location,
 )
 from .conf import inventory_setting
+from .views import label_print, label_print_bulk
 
 _ENABLE_CLIENT = inventory_setting('ENABLE_CLIENT')
 
@@ -78,6 +79,24 @@ class ClientAdmin(admin.ModelAdmin):
 
 if not Client._meta.swapped:
     admin.site.register(Client, ClientAdmin)
+
+
+# ---------------------------------------------------------------------------
+# Label Format
+# ---------------------------------------------------------------------------
+
+@admin.register(LabelFormat)
+class LabelFormatAdmin(admin.ModelAdmin):
+    list_display = ['name', 'width', 'height', 'is_default']
+    list_editable = ['is_default']
+    search_fields = ['name']
+    ordering = ['name']
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        # LabelFormat.save() enforces single default, but refresh after bulk edit
+        if obj.is_default:
+            LabelFormat.objects.exclude(pk=obj.pk).update(is_default=False)
 
 
 # ---------------------------------------------------------------------------
@@ -248,7 +267,7 @@ _item_list_display = [
     'name', 'asset_tag', 'status_badge', 'item_type', 'category',
     'manufacturer', 'serial_number', 'location',
     *(['client'] if _ENABLE_CLIENT else []),
-    'assigned_to', 'warranty_status',
+    'assigned_to', 'warranty_status', 'label_link',
 ]
 
 _item_list_filter = [
@@ -279,7 +298,7 @@ class ItemAdmin(admin.ModelAdmin):
     autocomplete_fields = _item_autocomplete
     readonly_fields = ['created_by', 'updated_by', 'created_at', 'updated_at']
     inlines = [CustomFieldValueInline, AuditEventInline]
-    actions = ['export_csv']
+    actions = ['export_csv', 'print_labels', 'generate_asset_tags']
     date_hierarchy = 'created_at'
 
     fieldsets = (
@@ -369,12 +388,45 @@ class ItemAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
     # ------------------------------------------------------------------
+    # Label link column
+    # ------------------------------------------------------------------
+
+    def label_link(self, obj):
+        url = reverse('admin:inventory_item_label_single', args=[obj.pk])
+        return format_html('<a href="{}" target="_blank">🏷 Label</a>', url)
+    label_link.short_description = 'Label'
+    label_link.allow_tags = True
+
+    # ------------------------------------------------------------------
     # CSV Export action
     # ------------------------------------------------------------------
 
     @admin.action(description='Export selected items to CSV')
     def export_csv(self, request, queryset):
         return _export_items_csv(queryset)
+
+    # ------------------------------------------------------------------
+    # Print Labels action
+    # ------------------------------------------------------------------
+
+    @admin.action(description='Print labels for selected items')
+    def print_labels(self, request, queryset):
+        ids = ','.join(str(pk) for pk in queryset.values_list('pk', flat=True))
+        url = reverse('admin:inventory_item_label_bulk') + f'?ids={ids}'
+        return HttpResponseRedirect(url)
+
+    # ------------------------------------------------------------------
+    # Generate asset tags action
+    # ------------------------------------------------------------------
+
+    @admin.action(description='Generate asset tags for selected items (if blank)')
+    def generate_asset_tags(self, request, queryset):
+        updated = 0
+        for item in queryset.filter(asset_tag__isnull=True):
+            item.asset_tag = Item._next_asset_tag()
+            item.save(update_fields=['asset_tag'])
+            updated += 1
+        self.message_user(request, f'Generated asset tags for {updated} item(s).')
 
     # ------------------------------------------------------------------
     # CSV Import — custom admin URL + view
@@ -387,6 +439,16 @@ class ItemAdmin(admin.ModelAdmin):
                 'import-csv/',
                 self.admin_site.admin_view(self.import_csv_view),
                 name='inventory_item_import_csv',
+            ),
+            path(
+                '<int:pk>/label/',
+                self.admin_site.admin_view(label_print),
+                name='inventory_item_label_single',
+            ),
+            path(
+                'labels/',
+                self.admin_site.admin_view(label_print_bulk),
+                name='inventory_item_label_bulk',
             ),
         ]
         return custom + urls

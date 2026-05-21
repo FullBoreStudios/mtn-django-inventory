@@ -3,6 +3,40 @@ from django.conf import settings
 
 
 # ---------------------------------------------------------------------------
+# LabelFormat
+# ---------------------------------------------------------------------------
+
+class LabelFormat(models.Model):
+    """Printable label dimensions. One format is marked as default."""
+
+    name = models.CharField(max_length=100, unique=True)
+    width = models.CharField(max_length=20, help_text='e.g. 3.5in or 90mm')
+    height = models.CharField(max_length=20, help_text='e.g. 1.1in or 29mm')
+    is_default = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Label Format'
+        verbose_name_plural = 'Label Formats'
+
+    def __str__(self):
+        return f'{self.name} ({self.width} × {self.height})'
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            LabelFormat.objects.exclude(pk=self.pk).update(is_default=False)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_default(cls):
+        return (
+            cls.objects.filter(is_default=True).first()
+            or cls.objects.first()
+        )
+
+
+# ---------------------------------------------------------------------------
 # Category
 # ---------------------------------------------------------------------------
 
@@ -147,6 +181,38 @@ class Item(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        from .conf import inventory_setting
+        if not self.asset_tag and inventory_setting('ASSET_TAG_AUTO'):
+            self.asset_tag = self._next_asset_tag()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def _next_asset_tag(cls):
+        from .conf import inventory_setting
+        prefix = inventory_setting('ASSET_TAG_PREFIX')
+        padding = inventory_setting('ASSET_TAG_PADDING')
+        pattern = f'{prefix}-'
+        existing_tags = cls.objects.filter(
+            asset_tag__startswith=pattern
+        ).values_list('asset_tag', flat=True)
+        used = set()
+        for tag in existing_tags:
+            try:
+                used.add(int(tag[len(pattern):]))
+            except (ValueError, IndexError):
+                pass
+        n = 1
+        while n in used:
+            n += 1
+        return f'{pattern}{n:0{padding}d}'
+
+    def qr_content(self):
+        parts = [self.asset_tag or f'ID:{self.pk}']
+        if self.serial_number:
+            parts.append(f'SN:{self.serial_number}')
+        return ' | '.join(parts)
 
 
 # ---------------------------------------------------------------------------

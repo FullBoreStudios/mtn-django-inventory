@@ -16,6 +16,8 @@ Built for tracking IT hardware (Ubiquiti, cameras, cable, etc.) but general enou
 - **Custom fields** — per-category EAV fields (text, number, date, boolean, URL)
 - **Status tracking** — In Stock / In Use / Maintenance / Retired / Disposed
 - **Audit log** — tracks status/location/client/assignment changes
+- **Asset tags** — auto-generated on save (`ASSET-00001`, configurable prefix/padding)
+- **Label printing** — print-ready thermal labels with QR code; label dimensions managed via `LabelFormat` admin model (default: 3.5in × 1.1in)
 - **CSV export** — admin action exports filtered items
 - **CSV import** — upload CSV with preview/confirm step
 
@@ -52,6 +54,9 @@ Add an `INVENTORY` dict to your Django settings (all optional):
 INVENTORY = {
     'BASE_TEMPLATE': 'base.html',  # template to extend in any package views
     'ENABLE_CLIENT': True,         # set False to hide the Client field on all Item admin views
+    'ASSET_TAG_AUTO': True,        # auto-generate asset tag on save when blank
+    'ASSET_TAG_PREFIX': 'ASSET',   # prefix for generated tags, e.g. 'ASSET' → 'ASSET-00001'
+    'ASSET_TAG_PADDING': 5,        # zero-pad width for the numeric portion
 }
 ```
 
@@ -72,18 +77,29 @@ If you change this after the initial migration you'll need to write a data migra
 
 ---
 
-## URL Configuration
+## Label Printing
 
-This package has no required URLs. If you add views in the future, include them:
+Label dimensions are managed via the **Label Formats** section in Django admin. A default `3.5in × 1.1in` format (standard Dymo/thermal label) is created automatically on first migrate.
+
+Labels include the asset tag (large), item name, manufacturer, serial number, and a QR code encoding the asset tag and serial number. They auto-print on page load.
+
+### Admin (zero config)
+
+- Click the **🏷 Label** link on any row in the Items changelist
+- Select items and use the **Print labels for selected items** action for bulk printing
+
+### Public URLs (optional)
+
+Include in your project's `urls.py` to expose label views outside the admin:
 
 ```python
-# urls.py
-from django.urls import path, include
-
-urlpatterns = [
-    path('inventory/', include('inventory.urls', namespace='inventory')),
-]
+path('inventory/', include('inventory.urls', namespace='inventory')),
 ```
+
+Then access:
+- `/inventory/labels/<pk>/` — single item label
+- `/inventory/labels/?ids=1,2,3` — bulk labels
+- Add `?format=<pk>` to either URL to use a specific `LabelFormat`
 
 ---
 

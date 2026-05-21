@@ -4,12 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mtn-django-inventory"
-version = "0.1.0"
+version = "0.2.0"
 description = "Reusable Django app for inventory management"
+readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 dependencies = [
     "django>=4.2",
+    "qrcode>=8.0",
+    "pillow>=10.0",
 ]
 
 [project.optional-dependencies]

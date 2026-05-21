@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{% if bulk %}Labels{% else %}Label — {{ items_data.0.item.name }}{% endif %}</title>
+  <style>
+    {% if label %}
+    @page { size: {{ label.width }} {{ label.height }}; margin: 0; }
+    {% else %}
+    @page { size: 3.5in 1.1in; margin: 0; }
+    {% endif %}
+
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
+
+    body { background: #f0f0f0; }
+
+    .label {
+      {% if label %}
+      width: {{ label.width }};
+      height: {{ label.height }};
+      {% else %}
+      width: 3.5in;
+      height: 1.1in;
+      {% endif %}
+      padding: 0.05in;
+      display: flex;
+      align-items: center;
+      gap: 0.08in;
+      background: #fff;
+      page-break-after: always;
+      overflow: hidden;
+    }
+
+    .label:last-child { page-break-after: avoid; }
+
+    .qr {
+      flex-shrink: 0;
+      width: 0.9in;
+      height: 0.9in;
+    }
+
+    .qr img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .info {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.02in;
+    }
+
+    .asset-tag {
+      font-size: 13pt;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .name {
+      font-size: 8pt;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .divider {
+      border-top: 1px solid #000;
+      margin: 0.02in 0;
+    }
+
+    .meta {
+      font-size: 7.5pt;
+      display: flex;
+      flex-direction: column;
+      gap: 0.01in;
+    }
+
+    .meta span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    @media screen {
+      body { padding: 20px; }
+      .label {
+        margin: 0 auto 16px;
+        border: 1px dashed #aaa;
+        border-radius: 2px;
+      }
+      .print-controls {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        display: flex;
+        gap: 8px;
+      }
+      .print-controls button {
+        padding: 8px 18px;
+        font-size: 14px;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fff;
+      }
+      .print-controls button.primary {
+        background: #417690;
+        color: #fff;
+        border-color: #417690;
+      }
+    }
+
+    @media print {
+      body { background: none; padding: 0; }
+      .print-controls { display: none; }
+      .label { margin: 0; border: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-controls">
+    <button class="primary" onclick="window.print()">Print</button>
+    <button onclick="window.close()">Close</button>
+  </div>
+
+  {% for entry in items_data %}
+  {% with item=entry.item qr_url=entry.qr_url %}
+  <div class="label">
+    <div class="qr">
+      <img src="{{ qr_url }}" alt="QR">
+    </div>
+    <div class="info">
+      <div class="asset-tag">{{ item.asset_tag|default:item.name }}</div>
+      <div class="name">{{ item.name }}</div>
+      <div class="divider"></div>
+      <div class="meta">
+        {% if item.manufacturer %}<span><strong>MFR:</strong> {{ item.manufacturer }}</span>{% endif %}
+        {% if item.serial_number %}<span><strong>S/N:</strong> {{ item.serial_number }}</span>{% endif %}
+        {% if item.location %}<span><strong>LOC:</strong> {{ item.location }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endwith %}
+  {% endfor %}
+
+  <script>
+    window.onafterprint = function() { if (!{{ bulk|yesno:"true,false" }}) window.close(); };
+    window.onload = function() { setTimeout(function() { window.print(); }, 300); };
+  </script>
+</body>
+</html>
