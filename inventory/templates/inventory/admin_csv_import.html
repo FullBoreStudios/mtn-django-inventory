@@ -1,0 +1,83 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Import Items from CSV{% endblock %}
+
+{% block content %}
+<h1>Import Items from CSV</h1>
+
+{% if preview_rows %}
+<p>
+  Previewing first {{ preview_rows|length }} of {{ total_rows }} row(s).
+  Confirm to import all {{ total_rows }} row(s).
+</p>
+
+<div style="overflow-x:auto">
+  <table class="table" style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead>
+      <tr style="background:#417690;color:#fff">
+        {% for key in preview_rows.0.keys %}
+        <th style="padding:6px 10px;text-align:left">{{ key }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in preview_rows %}
+      <tr style="{% cycle 'background:#f8f8f8' 'background:#fff' %}">
+        {% for val in row.values %}
+        <td style="padding:5px 10px;border-bottom:1px solid #eee">{{ val }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<form method="post" style="margin-top:20px">
+  {% csrf_token %}
+  <button type="submit" name="confirm" value="1"
+    class="button default"
+    style="background:#417690;color:#fff;padding:8px 20px;border:none;cursor:pointer;border-radius:4px">
+    Confirm Import ({{ total_rows }} row{{ total_rows|pluralize }})
+  </button>
+  &nbsp;
+  <a href="{% url 'admin:inventory_item_changelist' %}" class="button cancel"
+    style="padding:8px 20px;text-decoration:none;color:#333;border:1px solid #ccc;border-radius:4px">
+    Cancel
+  </a>
+</form>
+
+{% else %}
+
+<p>
+  Upload a CSV file to bulk-import inventory items.<br>
+  <strong>Required column:</strong> <code>name</code><br>
+  <strong>Optional columns:</strong>
+  <code>asset_tag</code>, <code>item_type</code>, <code>status</code>,
+  <code>category</code>, <code>manufacturer</code>, <code>model_number</code>,
+  <code>serial_number</code>, <code>quantity</code>, <code>unit</code>,
+  <code>purchase_date</code> (YYYY-MM-DD), <code>warranty_expiry</code> (YYYY-MM-DD),
+  <code>purchase_price</code>, <code>location</code>, <code>client</code>, <code>notes</code>
+</p>
+
+<p>
+  <code>category</code>, <code>location</code>, and <code>client</code> are matched by name
+  (case-insensitive). Unmatched values are skipped.
+</p>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  <div style="margin:20px 0">
+    {{ form.as_p }}
+  </div>
+  <button type="submit"
+    class="button default"
+    style="background:#417690;color:#fff;padding:8px 20px;border:none;cursor:pointer;border-radius:4px">
+    Preview CSV
+  </button>
+  &nbsp;
+  <a href="{% url 'admin:inventory_item_changelist' %}"
+    style="padding:8px 20px;text-decoration:none;color:#333">Cancel</a>
+</form>
+{% endif %}
+{% endblock %}
