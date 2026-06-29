@@ -105,8 +105,9 @@ class LabelFormatAdmin(admin.ModelAdmin):
 
 @admin.register(ItemModel)
 class ItemModelAdmin(admin.ModelAdmin):
-    list_display = ['manufacturer', 'name', 'price', 'item_count']
+    list_display = ['manufacturer', 'name', 'category', 'price', 'item_count']
     search_fields = ['manufacturer', 'name']
+    autocomplete_fields = ['category']
     ordering = ['manufacturer', 'name']
 
     def get_queryset(self, request):

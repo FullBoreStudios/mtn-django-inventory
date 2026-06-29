@@ -107,6 +107,10 @@ class ItemModel(models.Model):
 
     manufacturer = models.CharField(max_length=100)
     name = models.CharField(max_length=100)
+    category = models.ForeignKey(
+        Category, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='item_models',
+    )
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     notes = models.TextField(blank=True)
 
