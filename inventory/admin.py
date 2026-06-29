@@ -14,7 +14,7 @@ from django.utils.html import format_html
 
 from .models import (
     AuditEvent, Category, Client, CustomFieldDef,
-    CustomFieldValue, Item, LabelFormat, Location,
+    CustomFieldValue, Item, ItemModel, LabelFormat, Location,
 )
 from .conf import inventory_setting
 from .views import label_print, label_print_bulk
@@ -97,6 +97,25 @@ class LabelFormatAdmin(admin.ModelAdmin):
         # LabelFormat.save() enforces single default, but refresh after bulk edit
         if obj.is_default:
             LabelFormat.objects.exclude(pk=obj.pk).update(is_default=False)
+
+
+# ---------------------------------------------------------------------------
+# ItemModel
+# ---------------------------------------------------------------------------
+
+@admin.register(ItemModel)
+class ItemModelAdmin(admin.ModelAdmin):
+    list_display = ['manufacturer', 'name', 'price', 'item_count']
+    search_fields = ['manufacturer', 'name']
+    ordering = ['manufacturer', 'name']
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_item_count=Count('items'))
+
+    def item_count(self, obj):
+        return obj._item_count
+    item_count.short_description = 'Items'
+    item_count.admin_order_field = '_item_count'
 
 
 # ---------------------------------------------------------------------------
@@ -293,9 +312,9 @@ class ItemAdmin(admin.ModelAdmin):
     list_filter = _item_list_filter
     search_fields = [
         'name', 'asset_tag', 'serial_number', 'model_number',
-        'manufacturer', 'notes',
+        'manufacturer', 'item_model__manufacturer', 'item_model__name', 'notes',
     ]
-    autocomplete_fields = _item_autocomplete
+    autocomplete_fields = [*_item_autocomplete, 'item_model']
     readonly_fields = ['created_by', 'updated_by', 'created_at', 'updated_at']
     inlines = [CustomFieldValueInline, AuditEventInline]
     actions = ['export_csv', 'print_labels', 'generate_asset_tags']
@@ -306,7 +325,7 @@ class ItemAdmin(admin.ModelAdmin):
             'fields': ('name', 'asset_tag', 'item_type', 'status', 'category'),
         }),
         ('Hardware Details', {
-            'fields': ('manufacturer', 'model_number', 'serial_number'),
+            'fields': ('item_model', 'manufacturer', 'model_number', 'serial_number'),
         }),
         ('Quantity', {
             'fields': ('quantity', 'unit'),

@@ -99,6 +99,28 @@ class Client(models.Model):
 
 
 # ---------------------------------------------------------------------------
+# ItemModel
+# ---------------------------------------------------------------------------
+
+class ItemModel(models.Model):
+    """Manufacturer + model combination. Items FK here to enable per-model aggregation."""
+
+    manufacturer = models.CharField(max_length=100)
+    name = models.CharField(max_length=100)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['manufacturer', 'name']
+        unique_together = [('manufacturer', 'name')]
+        verbose_name = 'Item Model'
+        verbose_name_plural = 'Item Models'
+
+    def __str__(self):
+        return f'{self.manufacturer} {self.name}'
+
+
+# ---------------------------------------------------------------------------
 # Item
 # ---------------------------------------------------------------------------
 
@@ -136,6 +158,10 @@ class Item(models.Model):
     # Hardware details
     manufacturer = models.CharField(max_length=100, blank=True)
     model_number = models.CharField(max_length=100, blank=True)
+    item_model = models.ForeignKey(
+        ItemModel, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='items',
+    )
     serial_number = models.CharField(max_length=200, blank=True)
 
     # Quantity (primarily for bulk items; serialized items default to 1)
