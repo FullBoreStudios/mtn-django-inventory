@@ -149,11 +149,16 @@ class Item(models.Model):
         ROLL = 'roll', 'Roll'
         LOT = 'lot', 'Lot'
 
+    class Condition(models.TextChoices):
+        NEW = 'new', 'New'
+        USED = 'used', 'Used'
+
     # Identity
     name = models.CharField(max_length=200)
     asset_tag = models.CharField(max_length=100, unique=True, blank=True, null=True)
     item_type = models.CharField(max_length=20, choices=ItemType.choices, default=ItemType.SERIALIZED)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_STOCK)
+    condition = models.CharField(max_length=10, choices=Condition.choices, default=Condition.NEW)
     category = models.ForeignKey(
         Category, null=True, blank=True,
         on_delete=models.SET_NULL, related_name='items'
